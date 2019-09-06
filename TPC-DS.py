@@ -13,9 +13,10 @@ spark = SparkSession \
     .builder \
     .appName("TPC-DS for Cosmos DB Spark") \
     .config('spark.driver.memory', '1g')  \
-    .config('spark.executor.memory', '1g') \
-    .config('spark.executor.cores', '2') \
+    .config('spark.executor.memory', '14g') \
+    .config('spark.executor.cores', '4') \
     .getOrCreate()
+
 
 
 # COMMAND ----------
@@ -26,9 +27,10 @@ storage_account_key = "KnjIj1g7v/qQMFOWhdAr9zQgsjNaUe1S6FaWY8C6Bb350sb7W1uwYwKjj
 spark.conf.set("spark.hadoop.fs.wasbs.impl", "org.apache.hadoop.fs.azure.NativeAzureFileSystem")
 spark.conf.set("fs.azure.account.key."+storage_account_name+".blob.core.windows.net",storage_account_key)
 
+
 # COMMAND ----------
 
-#Load all tables for querying
+#Load all tables forquerying
 call_center = spark.read.parquet("wasbs://cosmoshadoopdata01@cosmoshadoopdata.blob.core.windows.net/hive/warehouse/external/ds_call_centerxp")
 catalog_returns = spark.read.parquet("wasbs://cosmoshadoopdata01@cosmoshadoopdata.blob.core.windows.net/hive/warehouse/external/ds_catalog_returnsxp") 
 customer = spark.read.parquet("wasbs://cosmoshadoopdata01@cosmoshadoopdata.blob.core.windows.net/hive/warehouse/external/ds_customerxp") 
@@ -54,6 +56,34 @@ store_returns = spark.read.parquet("wasbs://cosmoshadoopdata01@cosmoshadoopdata.
 time_dim = spark.read.parquet("wasbs://cosmoshadoopdata01@cosmoshadoopdata.blob.core.windows.net/hive/warehouse/external/ds_time_dimxp")
 web_page = spark.read.parquet("wasbs://cosmoshadoopdata01@cosmoshadoopdata.blob.core.windows.net/hive/warehouse/external/ds_web_pagexp")
 web_sales = spark.read.parquet("wasbs://cosmoshadoopdata01@cosmoshadoopdata.blob.core.windows.net/hive/warehouse/external/ds_web_salesxp")
+
+#cache all tables
+call_center.cache
+catalog_returns.cache
+customer.cache
+customer_demographics.cache
+dbgen_version.cache
+income_band.cache
+item.cache
+reason.cache
+store.cache
+store_sales.cache
+warehouse.cache
+web_returns.cache
+web_site.cache
+catalog_page.cache
+catalog_sales.cache
+customer_address.cache
+date_dim.cache
+household_demographics.cache
+inventory.cache
+promotion.cache
+ship_mode.cache
+store_returns.cache
+time_dim.cache
+web_page.cache
+web_sales.cache
+
 
 #Register all tables in Spark SQL
 call_center.createOrReplaceTempView("call_center")
@@ -82,7 +112,10 @@ time_dim.createOrReplaceTempView("time_dim")
 web_page.createOrReplaceTempView("web_page")
 web_sales.createOrReplaceTempView("web_sales")
 
+from datetime import datetime
+
 # COMMAND ----------
+q1start = datetime.now()
 
 query1 = spark.sql("WITH customer_total_return AS \
    (SELECT sr_customer_sk AS ctr_customer_sk, sr_store_sk AS ctr_store_sk, \
@@ -101,8 +134,9 @@ query1 = spark.sql("WITH customer_total_return AS \
    AND ctr1.ctr_customer_sk = c_customer_sk \
    ORDER BY c_customer_id LIMIT 100").show()
 
+q1end = datetime.now()
 # COMMAND ----------
-
+q2start = datetime.now()
 query2 = spark.sql("WITH wscs as  \
  (SELECT sold_date_sk, sales_price  \
   FROM (SELECT ws_sold_date_sk sold_date_sk, ws_ext_sales_price sales_price  \
@@ -154,8 +188,9 @@ query2 = spark.sql("WITH wscs as  \
  WHERE d_week_seq1=d_week_seq2-53  \
  ORDER BY d_week_seq1").show()
 
+q2end = datetime.now()
 # COMMAND ----------
-
+q3start = datetime.now()
 query3 = spark.sql("SELECT dt.d_year, item.i_brand_id brand_id, item.i_brand brand,SUM(ss_ext_sales_price) sum_agg  \
  FROM  date_dim dt, store_sales, item  \
  WHERE dt.d_date_sk = store_sales.ss_sold_date_sk  \
@@ -166,8 +201,9 @@ query3 = spark.sql("SELECT dt.d_year, item.i_brand_id brand_id, item.i_brand bra
  ORDER BY dt.d_year, sum_agg desc, brand_id  \
  LIMIT 100").show()
 
+q3end = datetime.now()
 # COMMAND ----------
-
+q4start = datetime.now()
 query4 = spark.sql("WITH year_total AS (  \
  SELECT c_customer_id customer_id,  \
         c_first_name customer_first_name,  \
@@ -269,8 +305,9 @@ query4 = spark.sql("WITH year_total AS (  \
    t_s_secyear.customer_preferred_cust_flag  \
  LIMIT 100").show()
 
+q4end = datetime.now()
 # COMMAND ----------
-
+q5start = datetime.now()
 query5 = spark.sql("WITH ssr AS  \
   (SELECT s_store_id,  \
           sum(sales_price) as sales,  \
@@ -389,6 +426,12 @@ query5 = spark.sql("WITH ssr AS  \
  ORDER BY channel, id  \
  LIMIT 100").show()
 
+q5end = datetime.now()
 # COMMAND ----------
 
+print(q1end-q1start)
+print(q2end-q2start)
+print(q3end-q3start)
+print(q4end-q4start)
+print(q5end-q5start)
 
